@@ -1,0 +1,25 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "build": "npm run build:init && npm run build:js && npm run build:install",
+    "build:init": "rm -rf build && mkdir build",
+    "build:js": "babel server.js --out-dir build && babel modules --out-dir build/modules && cp modules/map.js build/modules/map.js && cp modules/mobs.js build/modules/mobs.js",
+    "build:install": "cp package.json build/ && cd build && npm install --production",
+    "start:server": "npm run build && cd build && node server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.2",
+    "dom-to-image": "^2.6.0",
+    "request": "^2.85.0",
+    "socket.io": "^2.1.0"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-preset-env": "^1.6.1"
+  }
+}
