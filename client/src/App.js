@@ -305,6 +305,7 @@ class App extends Component {
                         </Column>
                     </Columns>
                 }
+                {/* Progress tracker for moving rooms, will probably remove */}
                 {/*(this.state.logged_in && this.state.rg_sess_id != null) &&
                     <Columns style={{position: 'fixed', bottom: 0, width: '100%', margin: 0}}>
                         <Column isSize={12} style={{paddingBottom: 0}}>
