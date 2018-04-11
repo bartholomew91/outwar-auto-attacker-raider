@@ -10,7 +10,7 @@ var io = require('socket.io')();
 var r = require('request');
 var cheerio = require('cheerio');
 var fs = require('fs');
-
+var spawn = require('threads').spawn;
 
 var rg_sess_id = null; // to store our rg_sess_id
 var accounts = {
@@ -18,6 +18,8 @@ var accounts = {
     torax: []
 };
 var j = r.jar(); // setup the cookie jar for request
+var server = 'sigil';
+var server_id = 1;
 
 var rg_id_regex = /rg_sess_id=([A-Za-z0-9]+)\;/g; // regex to extract the rg_sess_id
 var char_id_regex = /suid=([0-9]+)/g; // regex to extract a characters id
@@ -27,10 +29,31 @@ var headers = { // the UA header we send we making a request
 
 r = r.defaults({ jar: j }); // set the cookie jar for request
 
-_mover.mover.setCookieJar(j);
+//mover.setCookieJar(j)
 _account.account.setCookieJar(j);
 
 //setCookieJar(j)
+
+var move = function move(character_id, destination, client) {
+    console.log('moving');
+    // request to get the characters current position
+    r('http://' + server + '.outwar.com/ajax_changeroomb.php?room=0&lastroom=0&suid=' + character_id + '&serverid=' + server_id, function (err, res, body) {
+        var json = JSON.parse(body);
+
+        // set the characters current room
+        var mover = new _mover.Mover();
+        mover.setCookieJar(j);
+        mover.setCurrentRoom(json.curRoom);
+        mover.setRgSessId(rg_sess_id);
+        mover.setServer(server, server_id);
+        mover.setCharacterId(character_id);
+        /*
+        * find a path from the current room to the room requested
+        * and then move them
+        */
+        (0, _pathfinder.findPath)(json.curRoom, destination, mover.move.bind(mover), client);
+    });
+};
 
 // client connected from the web browser
 io.on('connection', function (client) {
@@ -50,18 +73,13 @@ io.on('connection', function (client) {
     });
 
     // start the character movement
-    client.on('move', function () {
-        // request to get the characters current position
-        r('http://torax.outwar.com/ajax_changeroomb.php?room=0&lastroom=0', function (err, res, body) {
-            var json = JSON.parse(body);
+    client.on('move', function (data) {
+        var room = data.room,
+            accounts = data.accounts;
 
-            // set the characters current room
-            _mover.mover.setCurrentRoom(json.curRoom);
-            /*
-            * find a path from the current room to the room requested
-            * and then move them
-            */
-            (0, _pathfinder.findPath)(json.curRoom, 454, _mover.mover.move.bind(_mover.mover), client);
+        accounts.map(function (character_id) {
+            //Threads.create().eval(move).eval(`move(${room}, ${character_id}, ${client})`)
+            move(character_id, room, client);
         });
     });
 
@@ -70,7 +88,7 @@ io.on('connection', function (client) {
         // if an rg_sess_id isn't passed, don't try to login
         if (session != undefined) {
             var options = {
-                url: 'http://torax.outwar.com/profile.php?rg_sess_id=' + session,
+                url: 'http://' + server + '.outwar.com/profile.php?rg_sess_id=' + session,
                 method: 'GET',
                 headers: headers
 
@@ -82,7 +100,7 @@ io.on('connection', function (client) {
                 // got a cookie, the server is logged in
                 if (session_cookie) {
                     rg_sess_id = rg_id_regex.exec(session_cookie)[1]; // extract the rg_sess_id from cookie
-                    _mover.mover.setRgSessId(rg_sess_id);
+                    _account.account.setRgSessId(rg_sess_id);
                     client.emit('updateRgSessId', rg_sess_id); // update client side rg_sess_id
                 }
             });
@@ -103,9 +121,15 @@ io.on('connection', function (client) {
 
     // grab the players list of accounts
     client.on('getAccounts', function () {
-        _account.account.setRgSessId(rg_sess_id);
-        _account.account.getAccounts('torax', client);
+        _account.account.getAccounts(client);
         console.log(rg_sess_id);
+    });
+
+    client.on('setServer', function (server) {
+        server_id = server == 'sigil' ? 1 : 2;
+        server = server;
+
+        _account.account.setServer(server, server_id);
     });
 });
 

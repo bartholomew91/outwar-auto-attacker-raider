@@ -21,6 +21,8 @@ var Account = exports.Account = function () {
         this.j = null;
         this.rg_sess_id = null;
         this.accounts = [];
+        this.server = 'sigil';
+        this.server_id = 1;
     }
 
     _createClass(Account, [{
@@ -35,19 +37,25 @@ var Account = exports.Account = function () {
             this.rg_sess_id = rg_sess_id;
         }
     }, {
+        key: 'setServer',
+        value: function setServer(server, server_id) {
+            this.server = server;
+            this.server_id = server_id;
+        }
+    }, {
         key: 'getAccounts',
         value: function getAccounts() {
             return this.accounts;
         }
     }, {
         key: 'getAccounts',
-        value: function getAccounts(server, client) {
+        value: function getAccounts(client) {
             var _this = this;
 
             console.log(this.rg_sess_id);
             if (this.rg_sess_id != null) {
                 this.accounts = [];
-                r('http://torax.outwar.com/myaccount', function (err, res, body) {
+                r('http://' + this.server + '.outwar.com/myaccount?ac_serverid=' + this.server_id, function (err, res, body) {
                     var $ = cheerio.load(body);
                     $('table#characterTable tbody').children().each(function (i, elem) {
                         var character = {};

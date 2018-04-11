@@ -21,6 +21,9 @@ var Mover = exports.Mover = function () {
         this.rg_sess_id = null;
         this.current_room = null;
         this.initial_rooms = null;
+        this.server = 'sigil';
+        this.server_id = 1;
+        this.character_id;
     }
 
     _createClass(Mover, [{
@@ -45,6 +48,17 @@ var Mover = exports.Mover = function () {
             return this.current_room;
         }
     }, {
+        key: 'setServer',
+        value: function setServer(server, server_id) {
+            this.server = server;
+            this.server_id = server_id;
+        }
+    }, {
+        key: 'setCharacterId',
+        value: function setCharacterId(character_id) {
+            this.character_id = character_id;
+        }
+    }, {
         key: 'move',
         value: function move(move_list, client) {
             var _this = this;
@@ -53,7 +67,7 @@ var Mover = exports.Mover = function () {
                 this.initial_rooms = this.initial_rooms || move_list.length;
 
                 var options = {
-                    url: 'http://torax.outwar.com/ajax_changeroomb.php?room=' + move_list[0] + '&lastroom=' + this.current_room,
+                    url: 'http://' + this.server + '.outwar.com/ajax_changeroomb.php?room=' + move_list[0] + '&lastroom=' + this.current_room + '&suid=' + this.character_id + '&serverid=' + this.server_id,
                     method: 'GET',
                     headers: headers
                 };
@@ -65,13 +79,20 @@ var Mover = exports.Mover = function () {
                         _this.current_room = move_list.shift();
 
                         var percent = Math.round((_this.initial_rooms - move_list.length) / _this.initial_rooms * 100);
-                        var room_name = json.name + ' Room #' + json.curRoom;
+                        var room_name = json.name + ' Room #' + json.curRoom + ' - ' + percent + '% of the way there';
 
-                        client.emit('updateProgress', { percent: percent, room_name: room_name });
+                        client.emit('updateCharacterStatus', {
+                            character_id: _this.character_id,
+                            message: 'Currently in ' + room_name
+                        });
                         _this.move(move_list, client);
                     }
                 });
             } else {
+                client.emit('updateCharacterStatus', {
+                    character_id: this.character_id,
+                    message: 'Character arrived at destination'
+                });
                 this.initial_rooms = null;
             }
         }
@@ -80,4 +101,4 @@ var Mover = exports.Mover = function () {
     return Mover;
 }();
 
-var mover = exports.mover = new Mover();
+exports.default = Mover;

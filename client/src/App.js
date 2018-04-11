@@ -29,7 +29,8 @@ import {
     ModalCardHeader,
     ModalCardTitle,
     Table,
-    Section
+    Section,
+    Select
 } from 'bloomer'
 import { CircleLoader } from 'react-spinners';
 
@@ -47,13 +48,16 @@ class App extends Component {
             connection: 'Disconnected',
             rooms_mapped: false,
             accounts: [],
-            current_tab: 1
+            current_tab: 1,
+            selected_accounts: [],
+            account_status: []
         }
         this.login = this.login.bind(this)
         this.updateRgSessId = this.updateRgSessId.bind(this)
         this.checkAccounts = this.checkAccounts.bind(this)
         this.findPath = this.findPath.bind(this)
         this.setTab = this.setTab.bind(this)
+        this.selectAccount = this.selectAccount.bind(this)
     }
 
     componentDidMount() {
@@ -91,10 +95,23 @@ class App extends Component {
         socket.on('showAccounts', data => {
             this.setState({accounts: data.accounts})
         })
+
+        socket.on('updateCharacterStatus', data => {
+            let { character_id, message } = data
+            let account_status = this.state.account_status
+            account_status[character_id] = message
+            this.setState({account_status})
+        })
     }
 
     updateRgSessId(e) {
         this.setState({rg_sess_id: e.target.value})
+    }
+
+    selectAccount(e) {
+        let selected_accounts = this.state.selected_accounts
+        selected_accounts.push(e.target.value)
+        this.setState({selected_accounts})
     }
 
     login() {
@@ -113,12 +130,16 @@ class App extends Component {
         socket.emit('mapRooms')
     }
 
-    move() {
-        socket.emit('move')
+    move(room) {
+        socket.emit('move', {room, accounts: this.state.selected_accounts})
     }
 
     setTab(tab_id) {
         this.setState({current_tab: tab_id})
+    }
+
+    setServer(e) {
+        socket.emit('setServer', e.target.value)
     }
 
     render() {
@@ -156,45 +177,55 @@ class App extends Component {
                         <Column isSize={10}>
                             <Panel>
                                 <PanelHeading>
-                                    Accounts
-                                    <Button style={{marginLeft: 10}} isColor='black' isSize='small' isOutlined onClick={this.checkAccounts}>Load Accounts</Button>
+                                    <span style={{marginTop: 10, display: 'inline-block'}}>Accounts</span>
+                                    <Select onChange={this.setServer} name="server" style={{marginLeft: 10}}>
+                                        <option value="sigil">Sigil</option>
+                                        <option value="torax">Torax</option>
+                                    </Select>
+                                    <Button style={{marginLeft: 10, marginTop: 5}} isColor='black' isOutlined onClick={this.checkAccounts}>Load Accounts</Button>
+                                    
                                 </PanelHeading>
                                 <PanelBlock style={{overflow: 'auto'}}>
-                                    <div style={{height: '300px', width: '100%'}}>
-                                    <Table isStriped isBordered style={{width: '100%'}}>
-                                        <thead>
-                                            <tr>
-                                                <th style={{width: 10}}><input type="checkbox" /></th>
-                                                <th style={{width: 175}}>Character</th>
-                                                <th style={{width: 75}}>Power</th>
-                                                <th style={{width: 75}}>Rage</th>
-                                                <th style={{width: 175}}>Crew</th>
-                                                <th>Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {this.state.accounts.map((character) => {
-                                                return (
+                                    {this.state.accounts.length === 0 &&
+                                        <span>Select a server and click "Load Accounts".</span>
+                                    }
+                                    {this.state.accounts.length > 0 &&
+                                        <div style={{height: '300px', width: '100%'}}>
+                                            <Table isStriped isBordered style={{width: '100%'}}>
+                                                <thead>
                                                     <tr>
-                                                        <td><input type="checkbox" name="character[]" value={character.id} /></td>
-                                                        <td>
-                                                            <a 
-                                                                target="_new" 
-                                                                href={`http://torax.outwar.com/world?suid=${character.id}&serverid=2&rg_sess_id=${this.state.rg_sess_id}`}
-                                                            >
-                                                                {character.name}
-                                                            </a>
-                                                        </td>
-                                                        <td>{character.power}</td>
-                                                        <td>{character.rage}</td>
-                                                        <td>{character.crew}</td>
-                                                        <td></td>
+                                                        <th style={{width: 10}}><input type="checkbox" /></th>
+                                                        <th style={{width: 175}}>Character</th>
+                                                        <th style={{width: 75}}>Power</th>
+                                                        <th style={{width: 75}}>Rage</th>
+                                                        <th style={{width: 175}}>Crew</th>
+                                                        <th>Status</th>
                                                     </tr>
-                                                )
-                                            })}
-                                        </tbody>
-                                    </Table>
-                                    </div>
+                                                </thead>
+                                                <tbody>
+                                                    {this.state.accounts.map((character) => {
+                                                        return (
+                                                            <tr>
+                                                                <td><input type="checkbox" onChange={this.selectAccount} name="character[]" value={character.id} /></td>
+                                                                <td>
+                                                                    <a 
+                                                                        target="_new" 
+                                                                        href={`http://torax.outwar.com/world?suid=${character.id}&serverid=2&rg_sess_id=${this.state.rg_sess_id}`}
+                                                                    >
+                                                                        {character.name}
+                                                                    </a>
+                                                                </td>
+                                                                <td>{character.power}</td>
+                                                                <td>{character.rage}</td>
+                                                                <td>{character.crew}</td>
+                                                                <td>{this.state.account_status[character.id] ? this.state.account_status[character.id] : ''}</td>
+                                                            </tr>
+                                                        )
+                                                    })}
+                                                </tbody>
+                                            </Table>
+                                        </div>
+                                    }
                                 </PanelBlock>
                             </Panel>
                         </Column>
@@ -248,7 +279,7 @@ class App extends Component {
                                             Rooms
                                         </Section>
                                         <Section isHidden={this.state.current_tab != 3}>
-                                            God Raider
+                                            <a href="#" onClick={() => this.move(1052)}>Move to Terrance</a>
                                         </Section>
                                         <Section isHidden={this.state.current_tab != 4}>
                                             Set Raider

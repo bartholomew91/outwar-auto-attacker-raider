@@ -9,6 +9,8 @@ export class Account {
         this.j = null
         this.rg_sess_id = null
         this.accounts = []
+        this.server = 'sigil'
+        this.server_id = 1
     }
 
     setCookieJar(j) {
@@ -20,15 +22,20 @@ export class Account {
         this.rg_sess_id = rg_sess_id
     }
 
+    setServer(server, server_id) {
+        this.server = server
+        this.server_id = server_id
+    }
+
     getAccounts() {
         return this.accounts
     }
 
-    getAccounts(server, client) {
+    getAccounts(client) {
         console.log(this.rg_sess_id)
         if(this.rg_sess_id != null) {
             this.accounts = []
-            r('http://torax.outwar.com/myaccount', (err, res, body) => {
+            r(`http://${this.server}.outwar.com/myaccount?ac_serverid=${this.server_id}`, (err, res, body) => {
                 let $ = cheerio.load(body)
                 $('table#characterTable tbody').children().each((i, elem) => {
                     let character = {}
